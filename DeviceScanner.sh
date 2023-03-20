@@ -5,6 +5,7 @@ trap ctrl_c INT
 function ctrl_c() {
         echo " Program halted."
         rm -f formattedoutput.txt
+        rm -f existingDevices.txt
         exit        
 }
 
@@ -48,7 +49,6 @@ else
         # if there is a third argument (presume location)
         if [[ -n $3 ]]; then
           location=$3
-          echo "location scanned:" $location
           
         # no third argument
         else echo "scan not saved anywhere."
@@ -57,7 +57,6 @@ else
       # Second argument is not rate, presume location
       else
         location=$2
-        echo "location scanned:" $location
       fi
     
     # if there is no second argument
@@ -74,17 +73,27 @@ fi
 while true; do
   # if locations is not null
   if [[ -n $location ]]; then
-    echo "conducting scan..."
+    # echo "conducting scan..."
     sudo arp-scan -l > output.txt
-    python3 outputformat.py output.txt >> locations/$location.txt
-    cat locations/$location.txt
+    # if rate is not null
+    if [[ -n $rate ]]; then
+      echo "*" >> output.txt
+    fi
+    touch locations/$location.txt
+    cp locations/$location.txt locations/$locations..txt
+    python3 outputformat.py >> locations/$location.txt
+    comm -13 --nocheck-order locations/$locations..txt locations/$location.txt
+    rm locations/$locations..txt
     rm output.txt
-    echo "scan results saved at /locations/"$location".txt"
+    # echo "scan results saved at /locations/"$location".txt"
 
   # if location is null 
   else 
     sudo arp-scan -l > output.txt
-    python3 outputformat.py output.txt > formattedoutput.txt
+    python3 outputformat.py > formattedoutput.txt
+    if [[ -n $rate ]]; then
+      echo * >> output.txt
+    fi
     rm output.txt
     cat formattedoutput.txt
     echo "Would you like to save this scan in a location? (y/N)"
