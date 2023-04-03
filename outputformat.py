@@ -148,8 +148,7 @@ for line in outputContent:
         else:
             # If this is the first device, then this will trigger causing the header to be printed
             if devicesFound == False:
-                x = datetime.datetime.now()
-                thePresent = x.strftime("%c").split()
+                thePresent = currentTime()
                 print(thePresent[3],"                                           ",thePresent[0], thePresent[2], thePresent[1], thePresent[4])
                 print("---- IP -------------- MAC ---------------- Vendor -----------------")
                 devicesFound = True
