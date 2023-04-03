@@ -1,4 +1,27 @@
-import re, datetime, os
+import re, datetime, os, subprocess
+
+
+def portCheck(ip):
+    port = '500'
+    # Construct the Nmap command to scan the specified IP and port
+    command = ['nmap', '-p', port, ip]
+    # Use subprocess to execute the command and capture the output
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    # Print the output (for debugging purposes)
+    output_lines = result.stdout.splitlines()
+    if output_lines[1] == "Note: Host seems down. If it is really up, but blocking our ping probes, try -Pn":
+      # HOST IS ACTUALLY DOWN
+      return True
+    else:
+        # host is up
+        return False
+    # You can then use the 'result.stdout' variable to access the output of the command
+    
+def currentTime():
+    x = datetime.datetime.now()
+    thePresent = x.strftime("%c").split()
+    return thePresent
+    
 
 # Opening the output file (the result of the arp scan)
 f = open("output.txt", "r")
@@ -38,7 +61,6 @@ if os.path.isfile("./existingDevices.txt"):
             else:
                 updatedDevices.append(line)
 
-    #print(".")
     newDevices = []
     f = open("existingDevices.txt", "a")
     for device in updatedDevices:
@@ -46,10 +68,10 @@ if os.path.isfile("./existingDevices.txt"):
             existingDevices.append(device)
             newDevices.append(device)
     if len(newDevices) > 0:
-        print("Devices that have since connected:")
+        thePresent = currentTime()
         for device in newDevices:
-            print(device)
-        #print(".")
+            outputDevice = device.split()
+            print(outputDevice[0], "has connected @", thePresent[3])   
 
     legacyDevices = []
     for device in existingDevices:
@@ -57,9 +79,17 @@ if os.path.isfile("./existingDevices.txt"):
             existingDevices.remove(device)
             legacyDevices.append(device)
     if len(legacyDevices) > 0:
-        print("Devices that have since disconnected:")
+        disconnectedDevices = []
         for device in legacyDevices:
-            print(device)
+            outputDevice = device.split()
+            if portCheck(outputDevice[0]):
+                disconnectedDevices.append(outputDevice[0])
+            else:
+                existingDevices.append(device)
+        if len(disconnectedDevices) > 0:
+            thePresent = currentTime()
+            for device in disconnectedDevices:
+                print(device, "has disconnected @", thePresent[3])
 
     f.close()
     f = open("existingDevices.txt", "w")
