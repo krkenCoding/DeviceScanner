@@ -1,5 +1,8 @@
-import re, datetime, os, subprocess
+import re, datetime, os, subprocess, sqlite3, sys
 
+def getaninput():
+    print("getting input.")
+    test = input("#")
 
 def portCheck(ip):
     port = '500'
@@ -67,12 +70,37 @@ if os.path.isfile("./existingDevices.txt"):
         if device not in existingDevices:
             existingDevices.append(device)
             newDevices.append(device)
-    if len(newDevices) > 0:
+    #print(".")
+    if len(newDevices) > 0:        
         thePresent = currentTime()
+        conn = sqlite3.connect('LANScanner.db')
+        c = conn.cursor()
+        #conn.commit()
+        #print("successfully inserted?")
+        #c.execute('SELECT * FROM devices')
+        #rows = c.fetchall()
+        #for row in rows:
+        #    print(row)
+        #conn.close()
+        #print("connection closed.")
         for device in newDevices:
             outputDevice = device.split()
-            print(outputDevice[0], "has connected @", thePresent[3])   
+            c.execute("SELECT * FROM devices WHERE IPAddress=? AND MACAddress=?", (outputDevice[0], outputDevice[1],))
+            result = c.fetchone()
+            if result is None:
+                c.execute("INSERT INTO devices (IPAddress, MACAddress, Location, isNew) VALUES (?, ?, ?, ?)", (outputDevice[0], outputDevice[1], sys.argv[1], 1,))
+                conn.commit()
+            else:
+                continue
+            conn.commit()
+            '''
+            c.execute('SELECT * FROM devices')
+            rows = c.fetchall()
 
+            for row in rows:
+                print(row)'''
+                
+            print(outputDevice[0], "has connected @", thePresent[3])     
     legacyDevices = []
     for device in existingDevices:
         if device not in updatedDevices:
@@ -148,12 +176,42 @@ for line in outputContent:
         else:
             # If this is the first device, then this will trigger causing the header to be printed
             if devicesFound == False:
+                try:
+                    # Create a table
+                    conn = sqlite3.connect('LANScanner.db')
+                    c = conn.cursor()
+                    c.execute('''CREATE TABLE devices
+                                 (deviceID INTEGER PRIMARY KEY AUTOINCREMENT, IPAddress TEXT, MACAddress TEXT, Person TEXT, DeviceType TEXT, Title TEXT, Location TEXT, isNew INTEGER)''')
+                    # Save the changes
+                    conn.commit()                 
+                    
+                except sqlite3.OperationalError:
+                    print(".")
+                
                 thePresent = currentTime()
-                print(thePresent[3],"                                           ",thePresent[0], thePresent[2], thePresent[1], thePresent[4])
+                print("\n",thePresent[3],"                                           ",thePresent[0], thePresent[2], thePresent[1], thePresent[4])
                 print("---- IP -------------- MAC ---------------- Vendor -----------------")
                 devicesFound = True
             deviceCount += 1
             print(line)
+            line = line.split()
+            c.execute("SELECT * FROM devices WHERE IPAddress=? AND MACAddress =?", (line[0],line[1],))
+            result = c.fetchone()
+            if result is None:
+                c.execute("INSERT INTO devices (IPAddress, MACAddress, Location, isNew) VALUES (?, ?, ?, ?)", (line[0], line[1], sys.argv[1], 1,))
+                conn.commit()
+            else:
+                continue
+            
+            
 
 print("\n"+str(deviceCount), "devices found.")
 print("--------------------------------------------------------------------")
+'''
+c.execute('SELECT * FROM devices')
+rows = c.fetchall()
+
+for row in rows:
+    print(row)
+    '''
+conn.close()
