@@ -23,7 +23,8 @@ else
     
   # -v
   elif [[ $1 == -v ]]; then
-    echo "view logs tba"
+    python3 logs.py
+    exit
  
   # if there is a scan argument
   elif [[ $1 == -s ]]; then
@@ -81,7 +82,7 @@ while true; do
     fi
     touch locations/$location.txt
     cp locations/$location.txt locations/$locations..txt
-    python3 outputformat.py >> locations/$location.txt
+    python3 outputformat.py $location >> locations/$location.txt
     comm -13 --nocheck-order locations/$locations..txt locations/$location.txt
     rm locations/$locations..txt
     rm output.txt
@@ -90,7 +91,7 @@ while true; do
   # if location is null 
   else 
     sudo arp-scan -l > output.txt
-    python3 outputformat.py > formattedoutput.txt
+    python3 outputformat.py $location > formattedoutput.txt
     if [[ -n $rate ]]; then
       echo * >> output.txt
     fi
