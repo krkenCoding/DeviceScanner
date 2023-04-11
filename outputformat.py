@@ -88,8 +88,9 @@ if os.path.isfile("./existingDevices.txt"):
             c.execute("SELECT * FROM devices WHERE IPAddress=? AND MACAddress=?", (outputDevice[0], outputDevice[1],))
             result = c.fetchone()
             if result is None:
-                c.execute("INSERT INTO devices (IPAddress, MACAddress, Location, isNew) VALUES (?, ?, ?, ?)", (outputDevice[0], outputDevice[1], sys.argv[1], 1,))
-                conn.commit()
+            	vendorFormatted = ' '.join(outputDevice[2:])
+            	c.execute("INSERT INTO devices (IPAddress, MACAddress, Vendor, Location, isNew) VALUES (?, ?, ?, ?, ?)", (outputDevice[0], outputDevice[1], vendorFormatted, sys.argv[1], 1,))
+            	conn.commit()
             else:
                 continue
             conn.commit()
@@ -181,7 +182,7 @@ for line in outputContent:
                     conn = sqlite3.connect('LANScanner.db')
                     c = conn.cursor()
                     c.execute('''CREATE TABLE devices
-                                 (deviceID INTEGER PRIMARY KEY AUTOINCREMENT, IPAddress TEXT, MACAddress TEXT, Person TEXT, DeviceType TEXT, Title TEXT, Location TEXT, isNew INTEGER)''')
+                                 (deviceID INTEGER PRIMARY KEY AUTOINCREMENT, IPAddress TEXT, MACAddress TEXT, Vendor TEXT, Person TEXT, DeviceType TEXT, Title TEXT, Location TEXT, isNew INTEGER)''')
                     # Save the changes
                     conn.commit()                 
                     
@@ -190,15 +191,25 @@ for line in outputContent:
                 
                 thePresent = currentTime()
                 print("\n",thePresent[3],"                                           ",thePresent[0], thePresent[2], thePresent[1], thePresent[4])
-                print("---- IP -------------- MAC ---------------- Vendor -----------------")
+                print("--Assignment--------- IP -------------- MAC ---------------- Vendor ----------------------")
                 devicesFound = True
             deviceCount += 1
-            print(line)
             line = line.split()
+            vendorFormatted = ' '.join(line[2:])
+            c.execute("SELECT * FROM devices WHERE IPAddress=? AND MACAddress =?", [line[0], line[1]])
+            result = c.fetchone()
+
+            if result is None:
+            	print("      -        ", line[0], "", line[1], "", vendorFormatted)
+            else:
+            	if result[6] is None:
+            		print("      -        ", line[0], "", line[1], "", vendorFormatted)
+            	else:
+            		print(result[6], "", line[0], line[1], "", vendorFormatted)
             c.execute("SELECT * FROM devices WHERE IPAddress=? AND MACAddress =?", (line[0],line[1],))
             result = c.fetchone()
             if result is None:
-                c.execute("INSERT INTO devices (IPAddress, MACAddress, Location, isNew) VALUES (?, ?, ?, ?)", (line[0], line[1], sys.argv[1], 1,))
+                c.execute("INSERT INTO devices (IPAddress, MACAddress, Vendor, Location, isNew) VALUES (?, ?, ?, ?, ?)", (line[0], line[1], vendorFormatted, sys.argv[1], 1,))
                 conn.commit()
             else:
                 continue
@@ -206,7 +217,7 @@ for line in outputContent:
             
 
 print("\n"+str(deviceCount), "devices found.")
-print("--------------------------------------------------------------------")
+print("------------------------------------------------------------------------------------------")
 '''
 c.execute('SELECT * FROM devices')
 rows = c.fetchall()
