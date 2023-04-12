@@ -18,10 +18,19 @@ def viewingDevice(result, ask):
 	print("---- Port -------------- State ---------------- Service -----------------")
 	print("                           TO BE ADDED")
 	print("------------------------------------------------------------------------------------------")
-	print("\nLogs:")
-	print("---- Location -------------- Activity ---------------- Time -----------------")
-	print("                           TO BE ADDED")
-	print("------------------------------------------------------------------------------------------")
+	
+	c.execute("SELECT * FROM logbook WHERE Device=?", (result[0],))
+	activity = c.fetchall()
+	if activity is None:
+		print("No logs to show!")
+	else:
+		print("\nLogs:")
+		print("---- Location -------------- Activity ---------------- Time -----------------")
+		for log in activity:
+			#log=log.split()
+			print("      ",log[3], "               ", log[2], "         ", log[0])
+			
+		print("------------------------------------------------------------------------------------------")
     	
 	if ask==True:
 		print("Who would you like to assign this device to?")
