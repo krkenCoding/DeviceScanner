@@ -1,8 +1,10 @@
 import re, datetime, os, subprocess, sqlite3, sys
 
+
 def getaninput():
     print("getting input.")
     test = input("#")
+
 
 def portCheck(ip):
     port = '500'
@@ -13,18 +15,19 @@ def portCheck(ip):
     # Print the output (for debugging purposes)
     output_lines = result.stdout.splitlines()
     if output_lines[1] == "Note: Host seems down. If it is really up, but blocking our ping probes, try -Pn":
-      # HOST IS ACTUALLY DOWN
-      return True
+        # HOST IS ACTUALLY DOWN
+        return True
     else:
         # host is up
         return False
     # You can then use the 'result.stdout' variable to access the output of the command
-    
+
+
 def currentTime():
     x = datetime.datetime.now()
     thePresent = x.strftime("%c").split()
     return thePresent
-    
+
 
 # Opening the output file (the result of the arp scan)
 f = open("output.txt", "r")
@@ -70,27 +73,35 @@ if os.path.isfile("./existingDevices.txt"):
         if device not in existingDevices:
             existingDevices.append(device)
             newDevices.append(device)
-    #print(".")
-    if len(newDevices) > 0:        
+    # print(".")
+    if len(newDevices) > 0:
         thePresent = currentTime()
         conn = sqlite3.connect('LANScanner.db')
         c = conn.cursor()
-        #conn.commit()
-        #print("successfully inserted?")
-        #c.execute('SELECT * FROM devices')
-        #rows = c.fetchall()
-        #for row in rows:
+        # conn.commit()
+        # print("successfully inserted?")
+        # c.execute('SELECT * FROM devices')
+        # rows = c.fetchall()
+        # for row in rows:
         #    print(row)
-        #conn.close()
-        #print("connection closed.")
+        # conn.close()
+        # print("connection closed.")
         for device in newDevices:
             outputDevice = device.split()
             c.execute("SELECT * FROM devices WHERE IPAddress=? AND MACAddress=?", (outputDevice[0], outputDevice[1],))
             result = c.fetchone()
             if result is None:
-            	vendorFormatted = ' '.join(outputDevice[2:])
-            	c.execute("INSERT INTO devices (IPAddress, MACAddress, Vendor, Location, isNew) VALUES (?, ?, ?, ?, ?)", (outputDevice[0], outputDevice[1], vendorFormatted, sys.argv[1], 1,))
-            	conn.commit()
+                vendorFormatted = ' '.join(outputDevice[2:])
+                c.execute("INSERT INTO devices (IPAddress, MACAddress, Vendor, Location, isNew) VALUES (?, ?, ?, ?, ?)",
+                          (outputDevice[0], outputDevice[1], vendorFormatted, sys.argv[1], 1,))
+                # NEED TO REPLACE RESULT[0] WITH THE DEVICEID
+                c.execute("SELECT * FROM devices WHERE IPAddress=? AND MACAddress =?",
+                          (outputDevice[0], outputDevice[1],))
+                result = c.fetchone()
+                c.execute(
+                    "INSERT INTO logbook (EventTime, Device, Activity, Location) VALUES (CURRENT_TIMESTAMP, ?, 'Connected', ? )",
+                    (result[0], sys.argv[1]))
+                conn.commit()
             else:
                 continue
             conn.commit()
@@ -100,8 +111,8 @@ if os.path.isfile("./existingDevices.txt"):
 
             for row in rows:
                 print(row)'''
-                
-            print(outputDevice[0], "has connected @", thePresent[3])     
+
+            print(outputDevice[0], "has connected @", thePresent[3])
     legacyDevices = []
     for device in existingDevices:
         if device not in updatedDevices:
@@ -116,9 +127,17 @@ if os.path.isfile("./existingDevices.txt"):
             else:
                 existingDevices.append(device)
         if len(disconnectedDevices) > 0:
+            conn = sqlite3.connect('LANScanner.db')
+            c = conn.cursor()
             thePresent = currentTime()
             for device in disconnectedDevices:
                 print(device, "has disconnected @", thePresent[3])
+                c.execute("SELECT * FROM devices WHERE IPAddress=?", (device,)) # WE NEED IT TO DO THE MAC ADDRESS TOO BECAUSE THE LIKIHOOD OF THERE BEING TWO OF THE SAME IP ADDRESSES ARE QUITE HIGH.
+                result = c.fetchone()
+                c.execute(
+                    "INSERT INTO logbook (EventTime, Device, Activity, Location) VALUES (CURRENT_TIMESTAMP, ?, 'Disconnected', ? )",
+                    (result[0], sys.argv[1]))
+                conn.commit()
 
     f.close()
     f = open("existingDevices.txt", "w")
@@ -177,20 +196,23 @@ for line in outputContent:
         else:
             # If this is the first device, then this will trigger causing the header to be printed
             if devicesFound == False:
+                conn = sqlite3.connect('LANScanner.db')
+                c = conn.cursor()
+                # Try to create the table if you run into errors then the table already exists
                 try:
                     # Create a table
-                    conn = sqlite3.connect('LANScanner.db')
-                    c = conn.cursor()
                     c.execute('''CREATE TABLE devices
                                  (deviceID INTEGER PRIMARY KEY AUTOINCREMENT, IPAddress TEXT, MACAddress TEXT, Vendor TEXT, Person TEXT, DeviceType TEXT, Title TEXT, Location TEXT, isNew INTEGER)''')
+                    c.execute('''CREATE TABLE logbook 
+                    		(EventTime DATETIME, Device INTEGER, Activity TEXT, Location TEXT)''')
                     # Save the changes
-                    conn.commit()                 
-                    
+                    conn.commit()
                 except sqlite3.OperationalError:
                     print(".")
-                
+
                 thePresent = currentTime()
-                print("\n",thePresent[3],"                                           ",thePresent[0], thePresent[2], thePresent[1], thePresent[4])
+                print("\n", thePresent[3], "                                           ", thePresent[0], thePresent[2],
+                      thePresent[1], thePresent[4])
                 print("--Assignment--------- IP -------------- MAC ---------------- Vendor ----------------------")
                 devicesFound = True
             deviceCount += 1
@@ -200,23 +222,28 @@ for line in outputContent:
             result = c.fetchone()
 
             if result is None:
-            	print("      -        ", line[0], "", line[1], "", vendorFormatted)
+                print("      -        ", line[0], "", line[1], "", vendorFormatted)
             else:
-            	if result[6] is None:
-            		print("      -        ", line[0], "", line[1], "", vendorFormatted)
-            	else:
-            		print(result[6], "", line[0], line[1], "", vendorFormatted)
-            c.execute("SELECT * FROM devices WHERE IPAddress=? AND MACAddress =?", (line[0],line[1],))
+                if result[6] is None:
+                    print("      -        ", line[0], "", line[1], "", vendorFormatted)
+                else:
+                    print(result[6], "", line[0], line[1], "", vendorFormatted)
+            c.execute("SELECT * FROM devices WHERE IPAddress=? AND MACAddress =?", (line[0], line[1],))
             result = c.fetchone()
             if result is None:
-                c.execute("INSERT INTO devices (IPAddress, MACAddress, Vendor, Location, isNew) VALUES (?, ?, ?, ?, ?)", (line[0], line[1], vendorFormatted, sys.argv[1], 1,))
+                c.execute("INSERT INTO devices (IPAddress, MACAddress, Vendor, Location, isNew) VALUES (?, ?, ?, ?, ?)",
+                          (line[0], line[1], vendorFormatted, sys.argv[1], 1,))
                 conn.commit()
             else:
                 continue
-            
-            
+            c.execute("SELECT * FROM devices WHERE IPAddress=? AND MACAddress =?", [line[0], line[1]])
+            result = c.fetchone()
+            c.execute(
+                "INSERT INTO logbook (EventTime, Device, Activity, Location) VALUES (CURRENT_TIMESTAMP, ?, 'Connected', ? )",
+                (result[0], sys.argv[1]))
+            conn.commit()
 
-print("\n"+str(deviceCount), "devices found.")
+print("\n" + str(deviceCount), "devices found.")
 print("------------------------------------------------------------------------------------------")
 '''
 c.execute('SELECT * FROM devices')
