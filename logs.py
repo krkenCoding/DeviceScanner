@@ -5,25 +5,56 @@ def clearandwait():
     time.sleep(0.25)
     os.system("clear")
 
+def portScan(IPAddress, DeviceID):
+    portScanOutput = os.system("nmap -F -Pn " + IPAddress + "> portscan.txt")
+    f = open("portscan.txt", "r")
+    content = f.readlines()
+    firstPort = True
+    for line in content:
+        line = line.replace("\n", "")
+
+        try:
+            if line[0].isdigit():
+                if firstPort is True:
+                    line = line.split()
+                    conn = sqlite3.connect('LANScanner.db')
+                    c = conn.cursor()
+                    try:
+                        c.execute('''CREATE TABLE ports
+                                (deviceID INTEGER, Port INTEGER, State TEXT, Service TEXT)''')
+                        conn.commit()
+                    except sqlite3.OperationalError:
+                        pass
+
+                c.execute("INSERT INTO ports (deviceID, Port, State, Service) VALUES (?, ?, ?, ?)",
+                          (DeviceID, line[0], line[1], line[2],))
+                conn.commit()
+        except IndexError:
+            pass
 
 def viewingDevice(result, ask):
     clearandwait()
+    conn = sqlite3.connect('LANScanner.db')
+    c = conn.cursor()
     print("--Assignment--------- IP -------------- MAC ---------------- Vendor ----------------------")
     if result[6] is None:
         print("      -        ", result[1], "", result[2], "", result[3])
     else:
         print(result[6], "", result[1], "", result[2], "", result[3])
     print("------------------------------------------------------------------------------------------")
-    c.execute("SELECT * FROM ports WHERE deviceID=?", (result[0],))
-    ports = c.fetchall()
     print("\nPort Info:")
-    print("---- Port -------------- State ---------------- Service -----------------")
-    if len(ports) == 0:
-    	print("		No open/filtered ports were detected")
-    else:
-    	for line in ports:
-    		print("   ",line[1], "          ",line[2], "               ", line[3])
-    print("------------------------------------------------------------------------------------------")
+    try:
+        c.execute("SELECT * FROM ports WHERE deviceID=?", (result[0],))
+        ports = c.fetchall()
+        print("---- Port -------------- State ---------------- Service -----------------")
+        if len(ports) == 0:
+            print("		No open/filtered ports were detected")
+        else:
+            for line in ports:
+                print("   ",line[1], "          ",line[2], "               ", line[3])
+        print("-------------------------------------------------------------------------")
+    except sqlite3.OperationalError:
+        print("Port scan not ran yet")
 
     c.execute("SELECT * FROM logbook WHERE Device=?", (result[0],))
     activity = c.fetchall()
@@ -34,9 +65,9 @@ def viewingDevice(result, ask):
         print("---- Location -------------- Activity ---------------- Time -----------------")
         for log in activity:
             # log=log.split()
-            print("      ", log[3], "               ", log[2], "         ", log[0])
+            print("   ", log[3], "         ", log[2], "         ", log[0])
 
-        print("------------------------------------------------------------------------------------------")
+        print("-----------------------------------------------------------------------------")
 
     if ask == True:
         print("Who would you like to assign this device to?")
@@ -64,9 +95,43 @@ def viewingDevice(result, ask):
         result = c.fetchone()
         viewingDevice(result, False)
     if ask == False:
-        print("Would you like to...\n1.) Edit \n2.) Delete \n3.) Go back...")
-        userInput = int(input("tba>"))
-        if userInput == 3:
+        print("Would you like to...\n1.) Edit \n2.) Run a port scan \n3.) Delete the device \n4.) Go back...")
+        userInput = int(input(">"))
+        if userInput == 2:
+            print("loading...")
+            portScanOutput = os.system("nmap -sV -Pn -T5 " + result[1] + " > portscan.txt")
+
+            f = open("portscan.txt", "r")
+            content = f.readlines()
+            firstPort = True
+            for line in content:
+                line = line.replace("\n", "")
+                try:
+                    if line[0].isdigit():
+                        if firstPort is True:
+                            line = line.split()
+                            conn = sqlite3.connect('LANScanner.db')
+                            c = conn.cursor()
+                            try:
+                                c.execute('''CREATE TABLE ports
+                                        (deviceID INTEGER, Port INTEGER, State TEXT, Service TEXT)''')
+                                conn.commit()
+                            except sqlite3.OperationalError:
+                                pass
+                        c.execute("SELECT * FROM ports WHERE deviceID=? AND Port=?",(result[0],line[0],))
+                        searchPort = c.fetchall()
+                        if len(searchPort)==0:
+                            c.execute("INSERT INTO ports (deviceID, Port, State, Service) VALUES (?, ?, ?, ?)",
+                                  (result[0], line[0], line[1], line[2],))
+                            conn.commit()
+                        print("line",line)
+                        hang=input(">")
+                except IndexError:
+                    pass
+
+            viewingDevice(result, False)
+
+        if userInput == 4:
             viewingLocation(result[7])
 
 
@@ -101,7 +166,7 @@ def locationSelect():
     directory_path = './locations'
 
     # Get a list of all files in the directory
-    file_list = [f for f in os.listdir(directory_path) if os.path.isfile(os.path.join(directory_path, f))]
+    file_list = [f for f in os.listdir(directory_path) if os.path.isfile(os.path.join(directory_path, f)) and f!="..txt"]
 
     print("Select which location log to view. (Or enter a non-int to close)")
 
