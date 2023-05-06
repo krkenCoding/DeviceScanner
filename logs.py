@@ -2,17 +2,22 @@ import os, sqlite3, re, time
 
 
 def clearandwait():
+    # Wait for a fraction of a second
     time.sleep(0.25)
+    # Clear the terminal's screen
     os.system("clear")
 
 def portScan(IPAddress, DeviceID):
+    # Conduct a port scan on the top 1000 ports and save it in a text file
     portScanOutput = os.system("nmap -F -Pn " + IPAddress + "> portscan.txt")
+    # Open the text file
     f = open("portscan.txt", "r")
+    # save all the contents into a variable
     content = f.readlines()
+    # 
     firstPort = True
     for line in content:
         line = line.replace("\n", "")
-
         try:
             if line[0].isdigit():
                 if firstPort is True:
@@ -20,14 +25,17 @@ def portScan(IPAddress, DeviceID):
                     conn = sqlite3.connect('LANScanner.db')
                     c = conn.cursor()
                     try:
+                        # Try creating a port table  
                         c.execute('''CREATE TABLE ports
                                 (deviceID INTEGER, Port INTEGER, State TEXT, Service TEXT)''')
                         conn.commit()
                     except sqlite3.OperationalError:
+                        # if it already exists, never mind
                         pass
-
+                # Insert into this port table the device id, ports, the states, and what the service is
                 c.execute("INSERT INTO ports (deviceID, Port, State, Service) VALUES (?, ?, ?, ?)",
                           (DeviceID, line[0], line[1], line[2],))
+                # commit to this table
                 conn.commit()
         except IndexError:
             pass
@@ -124,8 +132,6 @@ def viewingDevice(result, ask):
                             c.execute("INSERT INTO ports (deviceID, Port, State, Service) VALUES (?, ?, ?, ?)",
                                   (result[0], line[0], line[1], line[2],))
                             conn.commit()
-                        print("line",line)
-                        hang=input(">")
                 except IndexError:
                     pass
 
@@ -235,9 +241,11 @@ def newDeviceCheck(devices):
                 clearandwait()
                 locationSelect()
 
-
+# Connect to the database
 conn = sqlite3.connect('LANScanner.db')
 c = conn.cursor()
 
 while True:
+    # The program begins with a location select
     locationSelect()
+
