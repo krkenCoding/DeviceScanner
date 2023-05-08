@@ -30,6 +30,10 @@ else
   elif [[ $1 == -p ]]; then
     python3 pingIndividual.py $2
     exit
+    
+  elif [[ $1 == -k ]]; then
+    python3 kickdeviceout.py $2
+    exit
 
 
   # if there is a scan argument
