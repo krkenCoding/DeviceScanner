@@ -72,7 +72,6 @@ def viewingDevice(result, ask):
         print("\nLogs:")
         print("---- Location -------------- Activity ---------------- Time -----------------")
         for log in activity:
-            # log=log.split()
             print("   ", log[3], "         ", log[2], "         ", log[0])
 
         print("-----------------------------------------------------------------------------")
@@ -102,13 +101,34 @@ def viewingDevice(result, ask):
         c.execute("SELECT * FROM devices WHERE deviceID=?", (result[0],))
         result = c.fetchone()
         viewingDevice(result, False)
+
     if ask == False:
-        print("Would you like to...\n1.) Edit \n2.) Run a port scan \n3.) Delete the device \n4.) Go back...")
+        print("Would you like to...\n1.) Edit \n2.) Run a port scan \n3.) OS Guess \n4.) Delete the device \n5.) Go back...")
         userInput = int(input(">"))
+        if userInput == 1:
+            print("What would you like to update?")
+            print("1.) Owner's Name \n2.) Device Type \n3.) Device Label")
+            userEditChoice = int(input("#:"))
+            if userEditChoice == 1:
+                print("Who would you like to assign this device to?")
+                nameInput = input(">")
+                c.execute('UPDATE devices SET Person = ? WHERE deviceID = ?', (nameInput, result[0],))
+                conn.commit()
+            if userEditChoice == 2:
+                print("What type of device is this?")
+                typeInput = input(">")
+                c.execute('UPDATE devices SET DeviceType = ? WHERE deviceID = ?', (typeInput, result[0],))
+                conn.commit()
+            if userEditChoice == 3:
+                print("What would you like to call this device?")
+                deviceTitle=input(">")
+                c.execute('UPDATE devices SET Title = ? WHERE deviceID = ?', (deviceTitle, result[0],))
+                conn.commit()
+            viewingDevice(result, False)
+
         if userInput == 2:
             print("loading...")
             portScanOutput = os.system("nmap -sV -Pn -T5 " + result[1] + " > portscan.txt")
-
             f = open("portscan.txt", "r")
             content = f.readlines()
             firstPort = True
@@ -134,105 +154,137 @@ def viewingDevice(result, ask):
                             conn.commit()
                 except IndexError:
                     pass
-
+            os.system("rm -f portscan.txt")   
             viewingDevice(result, False)
+            
+        if userInput == 3:
+            print("loading")
+            OSguessOutput = os.system("sudo nmap -O " + result[1] + " > OSDetect.txt")
 
+            f=open("OSDetect.txt","r")
+            content = f.readlines()
+            OSResult = content[7]
+            for line in content:
+            	if "OS" in line:
+            		line=line.replace("\n","")
+            		print(line)
+            input("Enter anything to continue")
+            os.system("rm -f OSDetect.txt")
+            viewingDevice(result, False)
+             
         if userInput == 4:
+            print("tba")
+        
+        if userInput == 5:
             viewingLocation(result[7])
 
 
 def viewingLocation(locationTitle):
     clearandwait()
     print("Viewing", locationTitle, "logs.\n")
-
+    # Open the logs of the location
     f = open("locations/" + locationTitle + ".txt", "r")
     content = f.readlines()
-
     devices = []
     for line in content:
         line = line.replace("\n", "")
         print(line)
+        # If the line can be split like so then it's likely to contain an IP address, 
+        # we want to capture this IP address
         try:
             firstElement = line.split()[0]
             secondElement = line.split()[1]
         except IndexError:
             continue
-        # if the first element matches the ipv4 format then...
+        # if the first element matches the ipv4 format then add it to the devices list...
         match = re.match(r"[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}", firstElement)
         match2 = re.match(r"[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}", secondElement)
         if match and firstElement not in devices:
             devices.append(firstElement)
         elif match2 and secondElement not in devices:
             devices.append(secondElement)
+    # The function below checks all the IP addresses in the log 
+    # and see is there are any that haven't been assigned.
     newDeviceCheck(devices)
 
 
 def locationSelect():
-    # Define the directory path
-    directory_path = './locations'
-
-    # Get a list of all files in the directory
-    file_list = [f for f in os.listdir(directory_path) if os.path.isfile(os.path.join(directory_path, f)) and f!="..txt"]
-
+    # Get a list of all files in the directory "./locations", but do not include the file ..txt
+    file_list = [f for f in os.listdir('./locations') if os.path.isfile(os.path.join('./locations', f)) and f!="..txt"]
     print("Select which location log to view. (Or enter a non-int to close)")
-
     locations = []
     num = 1
-    # Print the list of files
+
+    # Print the list of files whilst removing the .txt extension
     for location in file_list:
         location = location.replace(".txt", "")
         locations.append(location)
         print(str(num) + ".)", location)
         num += 1
 
+    # Get input from the user
     try:
         locationChoice = int(input("\n#:"))
         locationTitle = locations[locationChoice - 1]
+    # if the value is outside of the range of the list then exit the program
     except ValueError:
         print("Quitting!")
         time.sleep(0.25)
         exit()
-
-    clearandwait()
+    # View the logs of the chosen location
     viewingLocation(locationTitle)
 
 
 def newDeviceCheck(devices):
     newDevicesID = []
+    # Using the list of IP found in the previous function
     for device in devices:
+        # Search these IPs in the database
         c.execute("SELECT * FROM devices WHERE IPAddress=?",
-                  (device,))  # AND MACAddress=?", (firstElement,)) #ADD MAC ADDRESSES TO THIS
+                  (device,))
         result = c.fetchone()
+        # if the isNew variable is True then append the IP to the new device list
         if result[8] == 1:
             newDevicesID.append(result[0])
 
     num = 1
+    # If there are new devices...
     if len(newDevicesID) > 0:
+        # print these messages
         print("\nThere are", len(newDevicesID), "new devices in this log.")
         print("Would you like to identify any of them? (y/N)")
+        # get user input
         userChoice = input(">")
+        # do the following if the user wants to identify the new devices
         if userChoice == "y":
+            # print a list of devices that can be identified...
             print("\nPick a device to identify:")
             for device in newDevicesID:
                 c.execute('SELECT * from devices WHERE deviceID=?', (device,))
                 result = c.fetchone()
                 print(str(num) + ".)", result[1])
                 num += 1
+            # Get the user's selection
             deviceChoice = int(input("#"))
+            # retrieve the data for that device
             c.execute("SELECT * FROM devices WHERE deviceID=?", (newDevicesID[deviceChoice - 1],))
             result = c.fetchone()
             clearandwait()
+            # Load the profile that contains the device's results
             viewingDevice(result, True)
 
 
         elif userChoice == "n" or userChoice == "N":
             print("\nSelect a device or go back by entering anything else.")
-
+            
+            # Print the list of devices 
             for i, device in enumerate(devices):
                 print(str(i + 1) + ".)", device)
             try:
+                # retrieve the user's selection
                 deviceChoice = int(input("#"))
                 print(devices[deviceChoice - 1], "selected")
+                # Get the device the user's selected information
                 c.execute("SELECT * FROM devices WHERE IPAddress=?", (devices[deviceChoice - 1],))
                 result = c.fetchone()
                 viewingDevice(result, False)
@@ -248,4 +300,3 @@ c = conn.cursor()
 while True:
     # The program begins with a location select
     locationSelect()
-
