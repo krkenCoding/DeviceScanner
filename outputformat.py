@@ -129,7 +129,7 @@ if __name__ == '__main__':
                     continue
                 conn.commit()
 
-                portScan(outputDevice[0], result[0])
+                #portScan(outputDevice[0], result[0])
 
                 print(outputDevice[0], "has connected @", thePresent[3])
         legacyDevices = []
@@ -259,7 +259,7 @@ if __name__ == '__main__':
 
                     c.execute("SELECT * FROM devices WHERE IPAddress=? AND MACAddress =?", [line[0], line[1]])
                     result = c.fetchone()
-                    portScan(result[1], result[0])
+                    # portScan(result[1], result[0])
                 else:
                     continue
                 c.execute("SELECT * FROM devices WHERE IPAddress=? AND MACAddress =?", [line[0], line[1]])
